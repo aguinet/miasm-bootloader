@@ -1,0 +1,4 @@
+pyparsing
+llvmlite
+elfesteem
+hexdump
