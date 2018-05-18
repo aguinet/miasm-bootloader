@@ -10,6 +10,8 @@ from miasm2.analysis.machine import Machine
 from miasm2.jitter.csts import PAGE_READ, PAGE_WRITE, PAGE_EXEC, EXCEPT_INT_XX, EXCEPT_BREAKPOINT_MEMORY
 from miasm2.jitter.jitload import ExceptionHandle
 from miasm2.core.utils import upck16
+from miasm2.core import parse_asm, asmblock
+from elfesteem.strpatchwork import StrPatchwork
 
 from handlers import interrupt_handlers
 from system import System
@@ -86,16 +88,60 @@ def find_key_in_mem(jitter, key):
         print >>sys.stderr, "[-] Key not found in memory!"
     return True
 
+def asm_shellcode(asm, labels = None):
+    machine = Machine("x86_16")
+    symbol_pool = asmblock.AsmSymbolPool()
+
+    # Assemble
+    blocks, symbol_pool = parse_asm.parse_txt(machine.mn, 16, asm, symbol_pool)
+
+    # Set custom labels
+    if not labels is None:
+        for name,value in labels.iteritems():
+            sym = symbol_pool.getby_name(name)
+            symbol_pool.set_offset(sym, value)
+
+    # Resolve all the labels
+    patches = asmblock.asm_resolve_final(machine.mn,
+                                         blocks,
+                                         symbol_pool)
+
+    # Assemble the final shellcode
+    shellcode = StrPatchwork()
+    for offset, raw in patches.items():
+        shellcode[offset] = raw
+    return str(shellcode)
 
 def read_key_and_patch(jitter):
     # Key is still in the stack, at 0x674A. You can find this value by activating the
     # find_key_in_mem breakpoint!
-    key = jitter.vm.get_mem(0x674A, 32)
+    key_addr = 0x674A
+    key = jitter.vm.get_mem(key_addr, 32)
     print >>sys.stderr, "\n[+] Key from memory: %s" % key.encode("hex")
 
-    # Patch the bootloader in memory to decrypt using this key
-    stub = open("stub","rb").read()
-    jitter.vm.set_mem(0x82A8, stub)
+    # Assemble our "shellcode" thanks to Miasm!
+    shellcode = """
+        PUSHA
+        LEA DI, WORD PTR [BP-0x44]
+        LEA BX, WORD PTR [key_addr]
+        XOR CX,CX
+
+    loop:
+        MOV EAX, DWORD PTR [BX]
+        MOV DWORD PTR [DI], EAX
+        ADD DI, 4
+        ADD BX, 4
+        INC CX
+        CMP CX,8
+        JNZ loop
+    
+        POPA
+        JMP 0000:0x835A
+    """
+    shellcode = asm_shellcode(shellcode, {"key_addr": key_addr})
+
+    # Patch the bootloader in memory to decrypt using the key
+    jitter.vm.set_mem(0x82A8, shellcode)
     return True
 
 def print_ip(jitter):
