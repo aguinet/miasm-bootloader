@@ -42,5 +42,5 @@ simple NTFS partition. Beware that the size of the decompressed file is ~1GB.
 Authors
 -------
 
-* lafouine
+* lafouine <lafouine@nopsys.org>
 * Adrien Guinet <adrien@guinet.me>
