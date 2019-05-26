@@ -5,7 +5,7 @@ Dependencies
 ------------
 
 * ``pip install -r requirements.txt``
-* Miasm ``dadfaabc3fff5edb9bf4ef7e7e8c4cfc4baccb94``: ``git clone --depth=1 -o dadfaabc3fff5edb9bf4ef7e7e8c4cfc4baccb94 https://github.com/cea-sec/miasm``
+* Miasm v0.1.1: ``git clone --depth=1 --branch=v0.1.1 https://github.com/cea-sec/miasm``
 
 Run
 ---
